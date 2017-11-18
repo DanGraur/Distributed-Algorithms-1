@@ -9,18 +9,7 @@ import java.rmi.server.UnicastRemoteObject;
 /**
  * @author Dan Graur 11/16/2017
  */
-public class MyImplementingClass extends UnicastRemoteObject implements MyRemoteInterface {
-
-    public MyImplementingClass() throws RemoteException {
-    }
-
-    public MyImplementingClass(int port) throws RemoteException {
-        super(port);
-    }
-
-    public MyImplementingClass(int port, RMIClientSocketFactory csf, RMIServerSocketFactory ssf) throws RemoteException {
-        super(port, csf, ssf);
-    }
+public class MyImplementingClass implements MyRemoteInterface {
 
     @Override
     public int addNumbers(int a, int b) throws RemoteException {
