@@ -24,13 +24,16 @@ public class Initiator {
      *
      * @param args contains the args of the node
      */
-    public static void main(String[] args) throws FileNotFoundException, RemoteException {
+    public static void main(String[] args) throws FileNotFoundException, RemoteException, InterruptedException {
         if (args.length != 5) {
             System.err.println("Usage: java Iniitator <Reg-IP> <Reg-Port> <Base-Name> <My-PID> <path-to-peer-config>");
 
             return;
         }
 
+        /* Configure the security manager */
+        System.setProperty("java.security.policy", "file:generic.policy");
+        System.setSecurityManager(new SecurityManager());
 
         /* Config the node */
         Node theNode = new Node(Integer.parseInt(args[2]));
@@ -49,7 +52,11 @@ public class Initiator {
         System.out.println("Have managed to successfully create the node");
 
         /* Start the node */
-        //new Thread(theNode).start();
+        Thread nodeThread = new  Thread(theNode);
+        nodeThread.start();
+
+        /* Wait until the node is finished, otherwise the GC will cause problems */
+        nodeThread.join();
     }
 
     /**
@@ -94,6 +101,10 @@ public class Initiator {
             }
         }
 
+        for (String s : tempNameList) {
+            System.out.println("Name: " + s);
+        }
+
         /* Build up the peer list */
         for (String regName : tempNameList) {
             boolean collected = false;
@@ -105,6 +116,7 @@ public class Initiator {
                     peers.put(regName, extractedStub);
 
                     collected = true;
+
                 } catch (NotBoundException e) {
                     System.err.println("Could not collect the stub under the name: " + regName + ". Will go to sleep for a bit.");
 

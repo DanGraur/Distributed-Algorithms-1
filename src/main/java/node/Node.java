@@ -57,6 +57,12 @@ public class Node implements GenericMessageSender, Runnable {
         this.peers = peers;
     }
 
+    /**
+     * This is actually the receive message, but it's name will be left as this
+     *
+     * @param message the message being received
+     * @throws RemoteException
+     */
     @Override
     public synchronized void sendMessage(Message message) throws RemoteException {
         sClock = Math.max(sClock, message.getsClock());
@@ -65,8 +71,78 @@ public class Node implements GenericMessageSender, Runnable {
         inQueue.add(message);
     }
 
+    /**
+     * Send a message to all other peers (including itself)
+     *
+     * @param message the message being sent
+     * @throws RemoteException
+     */
+    public void sendMessageToEveryone(Message message) throws RemoteException {
+
+        for (GenericMessageSender peer : peers.values()) {
+            
+            peer.sendMessage(message);
+            
+        }
+        
+    }
+
+
     @Override
     public void run() {
 
+        System.out.println("I'm in the run method");
+
+        while(true) {
+
+            if (pid == 1)
+                try {
+//                    System.out.println(peers.containsKey("0"));
+//                    System.out.println(peers.get("0").toString());
+
+                    /*peers.get("0")
+                            .sendMessage(
+                            new Message(
+                                pid, sClock++, false, "This is a non-ack message"
+                            )
+                    );*/
+
+                    Message msg = new Message(
+                            pid, sClock++, false, "This is a non-ack message"
+                    );
+
+                    sendMessageToEveryone(msg);
+
+                    System.out.println("Have sent message");
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+            else {
+                Message message = inQueue.poll();
+                System.out.println("Have received a message");
+
+                if (message != null)
+                    System.out.println(message.toString());
+            }
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+    }
+
+    @Override
+    public String toString() {
+        return "Node{" +
+                "pid=" + pid +
+                ", sClock=" + sClock +
+                ", inQueue=" + inQueue +
+                ", sentQueue=" + sentQueue +
+                ", peers=" + peers +
+                '}';
     }
 }

@@ -67,5 +67,16 @@ public class Message implements Serializable, Comparable {
         /* Else use only the sClocks */
         return diff;
     }
+
+    @Override
+    public String toString() {
+        return "Message{" +
+                "pid=" + pid +
+                ", sClock=" + sClock +
+                ", ack=" + ack +
+                ", contents='" + contents + '\'' +
+                ", timestamp=" + timestamp +
+                '}';
+    }
 }
 
