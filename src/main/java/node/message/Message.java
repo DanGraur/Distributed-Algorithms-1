@@ -2,24 +2,48 @@ package node.message;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * @author Dan Graur 11/18/2017
  */
 public class Message implements Serializable, Comparable {
 
+    protected String messageId;
+    private String procName;
     private long pid;
     private long sClock;
     private boolean ack;
     private String contents;
     private Date timestamp;
+    private Set<String> acks;
+    private boolean canRelease;
 
-    public Message(long pid, long sClock, boolean ack, String contents) {
+    public Message(long pid, String procName, long sClock, boolean ack, String contents) {
+        messageId = UUID.randomUUID().toString();
+
+        this.procName = procName;
         this.pid = pid;
         this.sClock = sClock;
         this.ack = ack;
         this.contents = contents;
         this.timestamp = new Date();
+        this.acks = new HashSet<>();
+        this.canRelease = false;
+    }
+
+    public String getProcName() {
+        return procName;
+    }
+
+    public void setProcName(String procName) {
+        this.procName = procName;
+    }
+
+    public String getMessageId() {
+        return messageId;
     }
 
     public void setAck(boolean ack) {
@@ -48,6 +72,22 @@ public class Message implements Serializable, Comparable {
 
     public Date getTimestamp() {
         return timestamp;
+    }
+
+    public void addAck(String peer) {
+        acks.add(peer);
+    }
+
+    public boolean containsAll(Set peers) {
+        return acks.containsAll(peers);
+    }
+
+    public boolean isCanRelease() {
+        return canRelease;
+    }
+
+    public void setCanRelease(boolean canRelease) {
+        this.canRelease = canRelease;
     }
 
     @Override

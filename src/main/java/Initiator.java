@@ -1,3 +1,4 @@
+import javafx.util.Pair;
 import node.Node;
 import node.message.GenericMessageSender;
 
@@ -21,12 +22,13 @@ public class Initiator {
      * args[2] - PID (since Java 1.8 does not allow this directly);
      * args[3] - path to file containing the peer information
      * args[4] - line index in the peer file (starts at 0)
+     * args[5] - line index in the peer file (starts at 0)
      *
      * @param args contains the args of the node
      */
     public static void main(String[] args) throws FileNotFoundException, RemoteException, InterruptedException {
-        if (args.length != 5) {
-            System.err.println("Usage: java Iniitator <Reg-IP> <Reg-Port> <Base-Name> <My-PID> <path-to-peer-config>");
+        if (args.length != 6) {
+            System.err.println("Usage: java Iniitator <Reg-IP> <Reg-Port> <Base-Name> <My-PID> <My-Name> <path-to-peer-config>");
 
             return;
         }
@@ -38,16 +40,19 @@ public class Initiator {
         /* Config the node */
         Node theNode = new Node(Integer.parseInt(args[2]));
 
-        /* Get the peers */
-        theNode.setPeers(
-            configPeers(
-                args[0],
-                Integer.parseInt(args[1]),
-                theNode,
-                args[3],
-                Integer.parseInt(args[4])
-            )
+        Pair<String, Map<String, GenericMessageSender>> result = configPeers(
+                            args[0],
+                            Integer.parseInt(args[1]),
+                            theNode,
+                            args[3],
+                            Integer.parseInt(args[5])
         );
+
+        /* Get the name */
+        theNode.setName(result.getKey());
+
+        /* Get the peers */
+        theNode.setPeers(result.getValue());
 
         System.out.println("Have managed to successfully create the node");
 
@@ -67,19 +72,21 @@ public class Initiator {
      * @param node the node which is currently being instantiated
      * @param path the path to the peer configuration file
      * @param lineIndex the index in the configuration file corresponding to the node being created
-     * @return a map with all of the created nodes
+     * @return a pair containing the name of the new node and a map with all of the created nodes
      * @throws FileNotFoundException is thrown when the config file could not be found
      * @throws RemoteException is thrown when the registry could not be found
      */
-    private static Map<String, GenericMessageSender> configPeers(String registryIP,
-                                                                 int registryPort,
-                                                                 Node node,
-                                                                 String path,
-                                                                 int lineIndex) throws FileNotFoundException, RemoteException {
+    private static Pair<String, Map<String, GenericMessageSender>> configPeers(String registryIP,
+                                                                               int registryPort,
+                                                                               Node node,
+                                                                               String path,
+                                                                               int lineIndex) throws FileNotFoundException, RemoteException {
         /* Some initializations */
         Scanner fileReader = new Scanner(new File(path));
         Map<String, GenericMessageSender> peers = new HashMap<>();
         List<String> tempNameList = new ArrayList<>();
+
+        String nameOfNode = "";
 
         /* Get the registry */
         Registry registry = LocateRegistry.getRegistry(registryIP, registryPort);
@@ -98,6 +105,8 @@ public class Initiator {
 
                 GenericMessageSender stub = (GenericMessageSender) UnicastRemoteObject.exportObject(node, port);
                 registry.rebind(nameInRegistry, stub);
+
+                nameOfNode = nameInRegistry;
             }
         }
 
@@ -132,6 +141,6 @@ public class Initiator {
         }
 
         /* Return the collected peers */
-        return peers;
+        return new Pair<>(nameOfNode, peers);
     }
 }

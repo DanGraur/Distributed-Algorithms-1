@@ -1,11 +1,12 @@
 package node;
 
+import node.message.AckMessage;
 import node.message.GenericMessageSender;
 import node.message.Message;
 
 import java.rmi.RemoteException;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.PriorityBlockingQueue;
 
@@ -14,6 +15,11 @@ import java.util.concurrent.PriorityBlockingQueue;
  */
 public class Node implements GenericMessageSender, Runnable {
     /**
+     * Unique name assigned to this node
+     */
+    private String name;
+
+    /**
      * This node's PID
      */
     private long pid;
@@ -21,7 +27,7 @@ public class Node implements GenericMessageSender, Runnable {
     /**
      * The scalar clock held in this node
      */
-    private long sClock;
+    private Long sClock;
 
     /**
      * This queue will hold the incoming messages. It will be ordered based on the scalar clock and the pid of this process
@@ -29,9 +35,9 @@ public class Node implements GenericMessageSender, Runnable {
     private Queue<Message> inQueue;
 
     /**
-     * The queue which will hosld the 'received messages' which have not been delivered yet to the other nodes
+     * Map of sent messages, which maps from UUID to the message
      */
-    private Queue<Message> sentQueue;
+    private Map<String, Message> sentMessages;
 
     /**
      * Will hold the communication channels to the other peers
@@ -40,21 +46,29 @@ public class Node implements GenericMessageSender, Runnable {
 
     public Node(long pid, Map<String, GenericMessageSender> peers) {
         this.pid = pid;
-        this.sClock = 0;
+        this.sClock = 0L;
         this.inQueue = new PriorityBlockingQueue<>();
-        this.sentQueue = new PriorityQueue<>();
         this.peers = peers;
+        this.sentMessages = new HashMap<>();
     }
 
     public Node(long pid) {
         this.pid = pid;
-        this.sClock = 0;
+        this.sClock = 0L;
         this.inQueue = new PriorityBlockingQueue<>();
-        this.sentQueue = new PriorityQueue<>();
+        this.sentMessages = new HashMap<>();
     }
 
     public void setPeers(Map<String, GenericMessageSender> peers) {
         this.peers = peers;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     /**
@@ -65,10 +79,58 @@ public class Node implements GenericMessageSender, Runnable {
      */
     @Override
     public synchronized void sendMessage(Message message) throws RemoteException {
-        sClock = Math.max(sClock, message.getsClock());
+        /* Update the scalar clock */
+        sClock = Math.max(sClock, message.getsClock()) + 1;
 
-        /* Not that it matters since this is synchronized, but the queue should be thread-safe */
-        inQueue.add(message);
+        /* Check if this is an ack message */
+        if (message.isAck()) {
+            AckMessage ackMessage = (AckMessage) message;
+
+            /* Check if this is a message for this node */
+            if (ackMessage.getSourcePid() == pid) {
+                Message msgInQuestion = sentMessages.get(ackMessage.getContents());
+
+                /* Ack the message */
+                msgInQuestion.addAck(ackMessage.getProcName());
+
+                /* Check if this message has been ack'd by all */
+                if (msgInQuestion.containsAll(peers.keySet()))
+                    msgInQuestion.setCanRelease(true);
+            }
+
+        } else {
+            /* Not that it matters since this is synchronized, but the queue should be thread-safe */
+            inQueue.add(message);
+
+            /* Send response */
+            sendMessageToEveryone(
+                    new AckMessage(
+                            pid,
+                            name,
+                            sClock,
+                            message.getMessageId(),
+                            message.getPid()
+                    )
+            );
+        }
+    }
+
+    // TODO: use my initial idea: use a buffer before the process' request buffer, i.e. a priority queue, based on a sClock + pid sort. A method will handle its behavior which will be identical to what is currently done in the sendMessage. This will improve thread safety and all that
+    //
+
+    /**
+     * Check the message located at the head of the queue
+     */
+    public void checkHeadMessage() {
+        Message headMessage = inQueue.peek();
+
+        /* Check if there is a message in the requrest queue, and if so, see if one can release it */
+        if (headMessage != null && headMessage.isCanRelease()) {
+            inQueue.poll();
+
+            /* Send a release message to all the peers that they can also release this message */
+        }
+
     }
 
     /**
@@ -108,7 +170,7 @@ public class Node implements GenericMessageSender, Runnable {
                     );*/
 
                     Message msg = new Message(
-                            pid, sClock++, false, "This is a non-ack message"
+                            pid, name, sClock++, false, "This is a non-ack message"
                     );
 
                     sendMessageToEveryone(msg);
@@ -141,7 +203,6 @@ public class Node implements GenericMessageSender, Runnable {
                 "pid=" + pid +
                 ", sClock=" + sClock +
                 ", inQueue=" + inQueue +
-                ", sentQueue=" + sentQueue +
                 ", peers=" + peers +
                 '}';
     }
