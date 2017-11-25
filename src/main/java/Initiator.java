@@ -127,7 +127,7 @@ public class Initiator {
                     collected = true;
 
                 } catch (NotBoundException e) {
-                    System.err.println("Could not collect the stub under the name: " + regName + ". Will go to sleep for a bit.");
+                    //System.err.println("Could not collect the stub under the name: " + regName + ". Will go to sleep for a bit.");
 
                     try {
                         Thread.sleep(500);

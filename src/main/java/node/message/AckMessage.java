@@ -21,4 +21,12 @@ public class AckMessage extends Message {
     public long getSourcePid() {
         return sourcePid;
     }
+
+    @Override
+    public String toString() {
+        return "AckMessage{" +
+                "sourcePid=" + sourcePid +
+                ", messageId='" + messageId + '\'' +
+                '}';
+    }
 }

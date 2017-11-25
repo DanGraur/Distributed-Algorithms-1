@@ -122,7 +122,7 @@ public class Node implements GenericMessageSender, Runnable {
                 /* Not that it matters since this is synchronized, but the queue should be thread-safe */
                 inQueue.add(message);
 
-                /* Send response */
+                // Send response
                 try {
                     sendMessageToEveryone(
                             new AckMessage(
@@ -156,6 +156,8 @@ public class Node implements GenericMessageSender, Runnable {
 
             /* Remove the message from the internal map */
             sentMessages.remove(headMessage.getMessageId());
+
+            System.out.println(headMessage.toString());
 
             /* Send a release message to all the peers that they can also release this message */
 
@@ -211,7 +213,10 @@ public class Node implements GenericMessageSender, Runnable {
                                 pid, sClock++, false, "This is a non-ack message"
                             )
                     );*/
+
                     processTempMessages();
+
+                    checkHeadMessage();
 
                     Message msg = new Message(
                             pid, name, sClock++, false, "This is a non-ack message"
