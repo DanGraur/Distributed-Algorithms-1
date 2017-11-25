@@ -7,6 +7,7 @@ import node.message.Message;
 import java.rmi.RemoteException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.concurrent.PriorityBlockingQueue;
 
@@ -35,6 +36,11 @@ public class Node implements GenericMessageSender, Runnable {
     private Queue<Message> inQueue;
 
     /**
+     * This queue will stand before the inQueue. It will store the unporcessed incoming messages.
+     */
+    private Queue<Message> intermediateQueue;
+
+    /**
      * Map of sent messages, which maps from UUID to the message
      */
     private Map<String, Message> sentMessages;
@@ -50,6 +56,7 @@ public class Node implements GenericMessageSender, Runnable {
         this.inQueue = new PriorityBlockingQueue<>();
         this.peers = peers;
         this.sentMessages = new HashMap<>();
+        this.intermediateQueue = new PriorityQueue<>();
     }
 
     public Node(long pid) {
@@ -57,6 +64,7 @@ public class Node implements GenericMessageSender, Runnable {
         this.sClock = 0L;
         this.inQueue = new PriorityBlockingQueue<>();
         this.sentMessages = new HashMap<>();
+        this.intermediateQueue = new PriorityQueue<>();
     }
 
     public void setPeers(Map<String, GenericMessageSender> peers) {
@@ -82,41 +90,58 @@ public class Node implements GenericMessageSender, Runnable {
         /* Update the scalar clock */
         sClock = Math.max(sClock, message.getsClock()) + 1;
 
-        /* Check if this is an ack message */
-        if (message.isAck()) {
-            AckMessage ackMessage = (AckMessage) message;
-
-            /* Check if this is a message for this node */
-            if (ackMessage.getSourcePid() == pid) {
-                Message msgInQuestion = sentMessages.get(ackMessage.getContents());
-
-                /* Ack the message */
-                msgInQuestion.addAck(ackMessage.getProcName());
-
-                /* Check if this message has been ack'd by all */
-                if (msgInQuestion.containsAll(peers.keySet()))
-                    msgInQuestion.setCanRelease(true);
-            }
-
-        } else {
-            /* Not that it matters since this is synchronized, but the queue should be thread-safe */
-            inQueue.add(message);
-
-            /* Send response */
-            sendMessageToEveryone(
-                    new AckMessage(
-                            pid,
-                            name,
-                            sClock,
-                            message.getMessageId(),
-                            message.getPid()
-                    )
-            );
-        }
+        /* Add the message to the temporary queue queue */
+        intermediateQueue.add(message);
     }
 
-    // TODO: use my initial idea: use a buffer before the process' request buffer, i.e. a priority queue, based on a sClock + pid sort. A method will handle its behavior which will be identical to what is currently done in the sendMessage. This will improve thread safety and all that
-    //
+    /**
+     * Process all the messages currently located in the temporary queue
+     */
+    public void processTempMessages() {
+
+        while (!intermediateQueue.isEmpty()) {
+            Message message = intermediateQueue.poll();
+
+            /* Check if this is an ack message */
+            if (message.isAck()) {
+                AckMessage ackMessage = (AckMessage) message;
+
+                /* Check if this is a message for this node */
+                if (ackMessage.getSourcePid() == pid) {
+                    Message msgInQuestion = sentMessages.get(ackMessage.getContents());
+
+                    /* Ack the message */
+                    msgInQuestion.addAck(ackMessage.getProcName());
+
+                    /* Check if this message has been ack'd by all */
+                    if (msgInQuestion.containsAll(peers.keySet()))
+                        msgInQuestion.setCanRelease(true);
+                }
+
+            } else {
+                /* Not that it matters since this is synchronized, but the queue should be thread-safe */
+                inQueue.add(message);
+
+                /* Send response */
+                try {
+                    sendMessageToEveryone(
+                            new AckMessage(
+                                    pid,
+                                    name,
+                                    sClock,
+                                    message.getMessageId(),
+                                    message.getPid()
+                            )
+                    );
+                } catch (RemoteException e) {
+                    System.err.println("There was an error when sending an ACK message to everyone");
+
+                    e.printStackTrace();
+                }
+            }
+        }
+
+    }
 
     /**
      * Check the message located at the head of the queue
@@ -124,13 +149,17 @@ public class Node implements GenericMessageSender, Runnable {
     public void checkHeadMessage() {
         Message headMessage = inQueue.peek();
 
-        /* Check if there is a message in the requrest queue, and if so, see if one can release it */
+        /* Check if there is a message in the request queue, and if so, see if one can release it */
         if (headMessage != null && headMessage.isCanRelease()) {
+            /* Remove the message */
             inQueue.poll();
 
-            /* Send a release message to all the peers that they can also release this message */
-        }
+            /* Remove the message from the internal map */
+            sentMessages.remove(headMessage.getMessageId());
 
+            /* Send a release message to all the peers that they can also release this message */
+
+        }
     }
 
     /**
@@ -139,7 +168,7 @@ public class Node implements GenericMessageSender, Runnable {
      * @param message the message being sent
      * @throws RemoteException
      */
-    public void sendMessageToEveryone(Message message) throws RemoteException {
+    private void sendMessageToEveryone(Message message) throws RemoteException {
 
         for (GenericMessageSender peer : peers.values()) {
             
@@ -147,6 +176,20 @@ public class Node implements GenericMessageSender, Runnable {
             
         }
         
+    }
+
+    /**
+     * Send a message to all other peers (including itself). This is the initial message sent by a
+     * process, and will be added to the process' internal map of sent messages. These sort of messages
+     * should trigger an entire communication cycle.
+     *
+     * @param message the message being sent
+     * @throws RemoteException
+     */
+    private void sendTrueMessageToEveryone(Message message) throws RemoteException {
+        sentMessages.put(message.getMessageId(), message);
+
+        sendMessageToEveryone(message);
     }
 
 
@@ -168,18 +211,20 @@ public class Node implements GenericMessageSender, Runnable {
                                 pid, sClock++, false, "This is a non-ack message"
                             )
                     );*/
+                    processTempMessages();
 
                     Message msg = new Message(
                             pid, name, sClock++, false, "This is a non-ack message"
                     );
 
-                    sendMessageToEveryone(msg);
+                    sendTrueMessageToEveryone(msg);
 
                     System.out.println("Have sent message");
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
             else {
+                processTempMessages();
                 Message message = inQueue.poll();
                 System.out.println("Have received a message");
 

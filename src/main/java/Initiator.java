@@ -44,7 +44,7 @@ public class Initiator {
                             args[0],
                             Integer.parseInt(args[1]),
                             theNode,
-                            args[3],
+                            args[4],
                             Integer.parseInt(args[5])
         );
 
