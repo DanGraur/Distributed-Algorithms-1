@@ -101,7 +101,7 @@ public class Node implements GenericMessageSender, Runnable {
             Message message = intermediateQueue.poll();
 
             /* Check if this is an ack message */
-            if (message.getType() == MessageType.ACK) {
+            if (message.getType().equals(MessageType.ACK)) {
                 AckMessage ackMessage = (AckMessage) message;
 
                 System.out.println(ackMessage);
@@ -130,7 +130,7 @@ public class Node implements GenericMessageSender, Runnable {
 
                 }
 
-            } else if (message.getType() == MessageType.REGULAR) {
+            } else if (message.getType().equals(MessageType.REGULAR)) {
                 /* Not that it matters since this is synchronized, but the queue should be thread-safe */
                 inQueue.add(message);
 

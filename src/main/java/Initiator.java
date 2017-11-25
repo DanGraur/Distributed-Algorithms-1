@@ -20,15 +20,14 @@ public class Initiator {
      * args[0] - Registry IP
      * args[1] - Registry Port
      * args[2] - PID (since Java 1.8 does not allow this directly);
-     * args[3] - path to file containing the peer information
+     * args[3] - path to file containing the peer configurations
      * args[4] - line index in the peer file (starts at 0)
-     * args[5] - line index in the peer file (starts at 0)
      *
      * @param args contains the args of the node
      */
     public static void main(String[] args) throws FileNotFoundException, RemoteException, InterruptedException {
-        if (args.length != 6) {
-            System.err.println("Usage: java Iniitator <Reg-IP> <Reg-Port> <Base-Name> <My-PID> <My-Name> <path-to-peer-config>");
+        if (args.length != 5) {
+            System.err.println("Usage: java Initiator <Reg-IP> <Reg-Port> <My-PID> <path-to-peer-config> <line-index>");
 
             return;
         }
@@ -44,8 +43,8 @@ public class Initiator {
                             args[0],
                             Integer.parseInt(args[1]),
                             theNode,
-                            args[4],
-                            Integer.parseInt(args[5])
+                            args[3],
+                            Integer.parseInt(args[4])
         );
 
         /* Get the name */
@@ -130,7 +129,7 @@ public class Initiator {
                     //System.err.println("Could not collect the stub under the name: " + regName + ". Will go to sleep for a bit.");
 
                     try {
-                        Thread.sleep(500);
+                        Thread.sleep(10000);
                     } catch (InterruptedException e1) {
                         e1.printStackTrace();
                     }
