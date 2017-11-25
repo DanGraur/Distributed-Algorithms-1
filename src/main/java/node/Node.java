@@ -248,43 +248,23 @@ public class Node implements GenericMessageSender, Runnable {
 
         System.out.println("I'm in the run method");
 
+        int counter = (int) pid;
+
         while(true) {
+            counter = (counter - 1) % 3;
 
-            if (pid == 1)
+            if (counter == pid) {
+                Message message = new Message(pid, name, sClock++, MessageType.REGULAR, "Hello from node " + pid);
+
                 try {
-//                    System.out.println(peers.containsKey("0"));
-//                    System.out.println(peers.get("0").toString());
-
-                    /*peers.get("0")
-                            .sendMessage(
-                            new Message(
-                                pid, sClock++, false, "This is a non-ack message"
-                            )
-                    );*/
-
-                    processTempMessages();
-
-                    checkHeadMessage();
-
-                    Message msg = new Message(
-                            pid, name, sClock++, MessageType.REGULAR, "This is a non-ack message"
-                    );
-
-                    sendTrueMessageToEveryone(msg);
-
-                    System.out.println("Have sent a message");
+                    sendTrueMessageToEveryone(message);
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
-            else {
-                processTempMessages();
-                checkHeadMessage();
-                Message message = inQueue.peek();
-                //System.out.println("Have received a message");
-
-                if (message != null)
-                    System.out.println(message.toString());
             }
+
+            processTempMessages();
+            checkHeadMessage();
 
             try {
                 Thread.sleep(1000);
