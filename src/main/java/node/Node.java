@@ -3,12 +3,10 @@ package node;
 import node.message.AckMessage;
 import node.message.GenericMessageSender;
 import node.message.Message;
+import node.message.MessageType;
 
 import java.rmi.RemoteException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.PriorityQueue;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.PriorityBlockingQueue;
 
 /**
@@ -103,24 +101,40 @@ public class Node implements GenericMessageSender, Runnable {
             Message message = intermediateQueue.poll();
 
             /* Check if this is an ack message */
-            if (message.isAck()) {
+            if (message.getType() == MessageType.ACK) {
                 AckMessage ackMessage = (AckMessage) message;
+
+                System.out.println(ackMessage);
 
                 /* Check if this is a message for this node */
                 if (ackMessage.getSourcePid() == pid) {
-                    Message msgInQuestion = sentMessages.get(ackMessage.getContents());
+                    boolean found = false;
 
-                    /* Ack the message */
-                    msgInQuestion.addAck(ackMessage.getProcName());
+                    for (Iterator<Message> iter = inQueue.iterator(); !found && iter.hasNext(); ) {
+                        Message temp = iter.next();
 
-                    /* Check if this message has been ack'd by all */
-                    if (msgInQuestion.containsAll(peers.keySet()))
-                        msgInQuestion.setCanRelease(true);
+                        /* Find the message first */
+                        if (temp.getMessageId().equals(ackMessage.getContents())) {
+                            found = true;
+
+                            /* Ack the message */
+                            temp.addAck(ackMessage.getProcName());
+
+                            /* Check if this message has been ack'd by all */
+                            if (temp.containsAll(peers.keySet())) {
+                                System.out.println("Can release: " + temp.toString());
+                                temp.setCanRelease(true);
+                            }
+                        }
+                    }
+
                 }
 
-            } else {
+            } else if (message.getType() == MessageType.REGULAR) {
                 /* Not that it matters since this is synchronized, but the queue should be thread-safe */
                 inQueue.add(message);
+
+                System.out.println(message);
 
                 // Send response
                 try {
@@ -138,6 +152,19 @@ public class Node implements GenericMessageSender, Runnable {
 
                     e.printStackTrace();
                 }
+            } else {
+                String messageId = message.getContents().split(":")[1];
+
+                boolean found = false;
+
+                for (Iterator<Message> iter = inQueue.iterator(); !found && iter.hasNext(); ) {
+                    Message temp = iter.next();
+
+                    if (temp.getType() == MessageType.REGULAR && temp.getPid() == message.getPid() && temp.getMessageId().equals(messageId)) {
+                        temp.setCanRelease(true);
+                        found = true;
+                    }
+                }
             }
         }
 
@@ -149,17 +176,38 @@ public class Node implements GenericMessageSender, Runnable {
     public void checkHeadMessage() {
         Message headMessage = inQueue.peek();
 
+        if (headMessage != null )
+            System.out.println("I'm in the checkHeadMessage method " + headMessage);
+
         /* Check if there is a message in the request queue, and if so, see if one can release it */
         if (headMessage != null && headMessage.isCanRelease()) {
+            System.out.println("I'm in the checkHeadMessage method, and can remove a message");
+
             /* Remove the message */
             inQueue.poll();
 
             /* Remove the message from the internal map */
             sentMessages.remove(headMessage.getMessageId());
 
+            /* Print the message */
             System.out.println(headMessage.toString());
 
-            /* Send a release message to all the peers that they can also release this message */
+            /*
+             * Send a release message to all the peers
+             * that they can also release this message,
+             * but only if it's one of this node's msg
+             */
+            if (headMessage.getPid() == pid) {
+                Message message = new Message(pid, name, sClock++, MessageType.RELEASE, "message_id:" + headMessage.getMessageId());
+
+                try {
+                    sendMessageToEveryone(message);
+                } catch (RemoteException e) {
+                    System.err.println("Could not send the message.");
+
+                    e.printStackTrace();
+                }
+            }
 
         }
     }
@@ -219,19 +267,20 @@ public class Node implements GenericMessageSender, Runnable {
                     checkHeadMessage();
 
                     Message msg = new Message(
-                            pid, name, sClock++, false, "This is a non-ack message"
+                            pid, name, sClock++, MessageType.REGULAR, "This is a non-ack message"
                     );
 
                     sendTrueMessageToEveryone(msg);
 
-                    System.out.println("Have sent message");
+                    System.out.println("Have sent a message");
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
             else {
                 processTempMessages();
-                Message message = inQueue.poll();
-                System.out.println("Have received a message");
+                checkHeadMessage();
+                Message message = inQueue.peek();
+                //System.out.println("Have received a message");
 
                 if (message != null)
                     System.out.println(message.toString());

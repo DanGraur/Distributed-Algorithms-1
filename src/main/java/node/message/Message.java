@@ -12,22 +12,22 @@ import java.util.UUID;
 public class Message implements Serializable, Comparable {
 
     protected String messageId;
-    private String procName;
-    private long pid;
-    private long sClock;
-    private boolean ack;
-    private String contents;
-    private Date timestamp;
-    private Set<String> acks;
-    private boolean canRelease;
+    protected String procName;
+    protected long pid;
+    protected long sClock;
+    protected MessageType type;
+    protected String contents;
+    protected Date timestamp;
+    protected Set<String> acks;
+    protected boolean canRelease;
 
-    public Message(long pid, String procName, long sClock, boolean ack, String contents) {
+    public Message(long pid, String procName, long sClock, MessageType type, String contents) {
         messageId = UUID.randomUUID().toString();
 
         this.procName = procName;
         this.pid = pid;
         this.sClock = sClock;
-        this.ack = ack;
+        this.type = type;
         this.contents = contents;
         this.timestamp = new Date();
         this.acks = new HashSet<>();
@@ -46,10 +46,6 @@ public class Message implements Serializable, Comparable {
         return messageId;
     }
 
-    public void setAck(boolean ack) {
-        this.ack = ack;
-    }
-
     public void setContents(String contents) {
         this.contents = contents;
     }
@@ -62,8 +58,12 @@ public class Message implements Serializable, Comparable {
         return sClock;
     }
 
-    public boolean isAck() {
-        return ack;
+    public MessageType getType() {
+        return type;
+    }
+
+    public void setType(MessageType type) {
+        this.type = type;
     }
 
     public String getContents() {
@@ -111,11 +111,15 @@ public class Message implements Serializable, Comparable {
     @Override
     public String toString() {
         return "Message{" +
-                "pid=" + pid +
+                "messageId='" + messageId + '\'' +
+                ", procName='" + procName + '\'' +
+                ", pid=" + pid +
                 ", sClock=" + sClock +
-                ", ack=" + ack +
+                ", type=" + type +
                 ", contents='" + contents + '\'' +
                 ", timestamp=" + timestamp +
+                ", acks=" + acks +
+                ", canRelease=" + canRelease +
                 '}';
     }
 }

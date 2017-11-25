@@ -13,7 +13,7 @@ public class AckMessage extends Message {
     private long sourcePid;
 
     public AckMessage(long pid, String procName, long sClock, String contents, long sourcePid) {
-        super(pid, procName, sClock, true, contents);
+        super(pid, procName, sClock, MessageType.ACK, contents);
 
         this.sourcePid = sourcePid;
     }
@@ -26,7 +26,10 @@ public class AckMessage extends Message {
     public String toString() {
         return "AckMessage{" +
                 "sourcePid=" + sourcePid +
-                ", messageId='" + messageId + '\'' +
+                ", procName='" + procName + '\'' +
+                ", pid=" + pid +
+                ", sClock=" + sClock +
+                ", contents='" + contents + '\'' +
                 '}';
     }
 }
