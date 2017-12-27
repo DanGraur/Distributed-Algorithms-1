@@ -1,9 +1,8 @@
 @echo off
 SETLOCAL ENABLEDELAYEDEXPANSION
 
-for /l %%p in (0,1,2) do (
+for /l %%p in (0,1,3) do (
 	
-	start java Initiator "192.168.0.101" "1099" %%p "peer_config.txt" %%p
+	start java Initiator "145.94.224.64" "1099" %%p "peer_config.txt" %%p
 
-	
 )
